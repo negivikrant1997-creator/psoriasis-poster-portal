@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Centered Circle Poster (PNG, GitHub Pages)</title>
+<style>
+  body { margin:0; font-family:system-ui, Arial; background:#120028; color:#fff; }
+  .bar { display:flex; gap:10px; padding:12px; flex-wrap:wrap; align-items:center; }
+  .thumbs { display:flex; gap:10px; padding:0 12px 12px; }
+  .thumb { position:relative; width:90px; height:160px; border-radius:10px; overflow:hidden; border:2px solid #555; cursor:pointer; }
+  .thumb img { width:100%; height:100%; object-fit:cover; display:block; }
+  .thumb input { position:absolute; inset:0; opacity:0; cursor:pointer; }
+  .thumb.active { border-color:#ffa500; box-shadow:0 0 0 3px rgba(255,165,0,0.35); }
+  input[type="file"], input[type="text"], button {
+    font-size:16px; padding:10px; border:none; border-radius:10px; background:#2f085a; color:#fff;
+  }
+  button { background:#ffa500; color:#230044; font-weight:700; }
+  .stage { display:grid; place-items:center; padding:10px; }
+  canvas {
+    width:min(94vw,420px);
+    height:calc(min(94vw,420px) * 1920 / 1080);
+    border-radius:14px; background:#0d001a;
+    box-shadow:0 8px 24px rgba(0,0,0,0.35);
+  }
+</style>
+</head>
+<body>
+  <div class="bar">
+    <label>User photo <input id="photoInput" type="file" accept="image/*" capture="environment"></label>
+    <label>Name <input id="nameInput" type="text" placeholder="Type name (optional)"></label>
+    <button id="saveBtn">Download</button>
+  </div>
+
+  <div class="thumbs" id="thumbs"></div>
+
+  <div class="stage">
+    <canvas id="cv" width="1080" height="1920" aria-label="Poster canvas"></canvas>
+  </div>
+
+<script>
+(() => {
+  // Same-origin poster paths on GitHub Pages
+  const POSTERS = [
+    {src:'posters/3.png', label:'3'},
+    {src:'posters/5.png', label:'5'},
+    {src:'posters/7.png', label:'7'}
+  ];
+
+  const W=1080, H=1920, CX=540, CY=960, R=330, NAME_Y = CY + R + 120;
+
+  const cv = document.getElementById('cv'), ctx = cv.getContext('2d');
+  const thumbs = document.getElementById('thumbs');
+  const photoInput = document.getElementById('photoInput');
+  const nameInput  = document.getElementById('nameInput');
+  const saveBtn    = document.getElementById('saveBtn');
+
+  let posterSrc = POSTERS[0].src, posterImg = null, photoImg = null;
+
+  function loadImage(src){
+    return new Promise((res, rej)=>{ const i=new Image(); i.onload=()=>res(i); i.onerror=rej; i.src=src; });
+  }
+
+  function buildThumbs(){
+    thumbs.innerHTML = '';
+    POSTERS.forEach((p, idx) => {
+      const lbl = document.createElement('label');
+      lbl.className = 'thumb' + (idx===0 ? ' active' : '');
+      lbl.dataset.src = p.src;
+
+      const img = document.createElement('img'); img.src = p.src; img.alt = 'Poster ' + p.label;
+      const input = document.createElement('input'); input.type='radio'; input.name='poster'; input.value=p.src; input.checked = idx===0;
+
+      lbl.appendChild(img); lbl.appendChild(input); thumbs.appendChild(lbl);
+    });
+  }
+
+  async function setPoster(src){
+    posterSrc = src;
+    try { posterImg = await loadImage(src); } catch { posterImg = null; }
+    draw();
+  }
+
+  function autoNameFromFile(file){
+    if (!file) return '';
+    const base = (file.name||'').replace(/\.[^.]+$/,'').replace(/[_-]+/g,' ').trim();
+    return base.split(' ').map(w=>w?w[0].toUpperCase()+w.slice(1):'').join(' ');
+  }
+
+  function draw(){
+    // Poster
+    if (posterImg) ctx.drawImage(posterImg, 0, 0, W, H); else { ctx.fillStyle='#2b0063'; ctx.fillRect(0,0,W,H); }
+
+    // Photo auto-fit under centered ring
+    if (photoImg){
+      ctx.save(); ctx.beginPath(); ctx.arc(CX, CY, R, 0, Math.PI*2); ctx.closePath(); ctx.clip();
+      const bw=2*R, bh=2*R, a=photoImg.width/photoImg.height, ab=bw/bh;
+      let dw, dh; if (a>ab){ dh=bh; dw=dh*a; } else { dw=bw; dh=dw/a; }
+      ctx.drawImage(photoImg, CX-dw/2, CY-dh/2, dw, dh);
+      ctx.restore();
+    }
+
+    // Visible ring on top
+    ctx.lineWidth = 6; ctx.strokeStyle='rgba(0,255,0,0.65)';
+    ctx.beginPath(); ctx.arc(CX, CY, R, 0, Math.PI*2); ctx.stroke();
+
+    // Name below circle
+    const name = (nameInput.value||'').trim();
+    if (name){ ctx.font='700 64px Arial, sans-serif'; ctx.fillStyle='#fff'; ctx.textAlign='center'; ctx.textBaseline='middle';
+      ctx.shadowColor='rgba(0,0,0,0.55)'; ctx.shadowBlur=10; ctx.fillText(name, W/2, NAME_Y); ctx.shadowBlur=0; }
+  }
+
+  // Events
+  thumbs.addEventListener('change', (e)=>{
+    const input = e.target; if (input && input.name==='poster'){
+      [...thumbs.querySelectorAll('.thumb')].forEach(t=>t.classList.remove('active'));
+      input.closest('.thumb').classList.add('active'); setPoster(input.value);
+    }
+  });
+
+  photoInput.addEventListener('change', ()=>{
+    const f = photoInput.files[0]; if (!f){ photoImg=null; draw(); return; }
+    const r = new FileReader(); r.onload = async e => {
+      try { photoImg = await loadImage(e.target.result); } catch { photoImg=null; }
+      if (!nameInput.value) nameInput.value = autoNameFromFile(f);
+      draw();
+    }; r.readAsDataURL(f);
+  });
+
+  nameInput.addEventListener('input', draw);
+
+  saveBtn.addEventListener('click', ()=>{
+    const a=document.createElement('a'); const who=(nameInput.value||'user').replace(/\s+/g,'_');
+    a.download=`poster_${posterSrc.split('/').pop().replace('.png','')}_${who}.png`;
+    a.href=cv.toDataURL('image/png'); a.click();
+  });
+
+  // Init
+  buildThumbs(); setPoster(posterSrc);
+})();
+</script>
+</body>
+</html>
