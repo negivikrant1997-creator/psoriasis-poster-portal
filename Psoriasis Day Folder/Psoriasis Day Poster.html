@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>World Psoriasis Day Poster Portal</title>
+  <style>
+    body { background:#21006e; color:#fff; font-family:Arial, sans-serif; text-align:center; margin:0; }
+    .input-block { margin:24px; }
+    .template-list { margin-bottom:22px; }
+    label { margin:0 18px; }
+    canvas { border:1px solid #ccc; margin-top:18px; }
+    .footer { font-size:15px; margin-top:34px; }
+    .dl-btn { margin-top:18px; display:none; }
+  </style>
+</head>
+<body>
+  <h2>Personalized Psoriasis Day Poster Portal</h2>
+  <div class="input-block">
+    <div class="template-list">
+      <label><input type="radio" name="template" value="7.jpg" checked> Stop the Domino Effect</label>
+      <label><input type="radio" name="template" value="3.jpg"> Understanding the Domino Effect</label>
+      <label><input type="radio" name="template" value="5.jpg"> Living with Comorbidities</label>
+    </div>
+    <input type="file" id="userImage" accept="image/*"><br>
+    <input type="text" id="userName" placeholder="Enter your name"><br>
+    <button onclick="generatePoster()">Generate Poster</button>
+  </div>
+  <canvas id="posterCanvas" width="1080" height="1527"></canvas>
+  <br>
+  <a id="downloadLink" class="dl-btn" download="personalized_poster.png">Download Poster</a>
+  <!-- Preload all templates in cache -->
+  <img id="tpl7" src="7.jpg" style="display:none">
+  <img id="tpl3" src="3.jpg" style="display:none">
+  <img id="tpl5" src="5.jpg" style="display:none">
+  <div class="footer">A Public & Healthcare awareness initiative by Canixa Life Sciences</div>
+<script>
+function generatePoster() {
+  var canvas = document.getElementById('posterCanvas');
+  var ctx = canvas.getContext('2d');
+  var tplFile = document.querySelector('input[name="template"]:checked').value;
+  var template;
+  if (tplFile=="7.jpg") template = document.getElementById('tpl7');
+  else if (tplFile=="3.jpg") template = document.getElementById('tpl3');
+  else template = document.getElementById('tpl5');
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  ctx.drawImage(template, 0, 0, canvas.width, canvas.height);
+  var userName = document.getElementById('userName').value || "";
+  var userImageInput = document.getElementById('userImage');
+  if (userImageInput.files && userImageInput.files[0]) {
+    var img = new Image();
+    img.onload = function() {
+      var imgW = 340, imgH = 340; // size of circular crop
+      var centerX = canvas.width/2 - imgW/2;
+      var centerY = 547;
+      ctx.save();
+      ctx.beginPath();
+      ctx.arc(centerX+imgW/2, centerY+imgH/2, 170, 0, 2*Math.PI);
+      ctx.clip();
+      ctx.drawImage(img, centerX, centerY, imgW, imgH);
+      ctx.restore();
+      ctx.font = "bold 40px Arial";
+      ctx.fillStyle = "#fff";
+      ctx.textAlign = "center";
+      ctx.fillText(userName, canvas.width/2, centerY+imgH+60);
+      var dl = document.getElementById('downloadLink');
+      dl.href = canvas.toDataURL();
+      dl.style.display = "inline-block";
+    };
+    var reader = new FileReader();
+    reader.onload = function(e) { img.src = e.target.result; };
+    reader.readAsDataURL(userImageInput.files[0]);
+  }
+}
+</script>
+</body>
+</html>
